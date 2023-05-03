@@ -1,10 +1,12 @@
 use rand::{thread_rng, Rng};
 
 use time::Time;
+use trajectory::Trajectory;
 use universe::{Particle, Universe};
 use vec3::Vec3;
 
 pub mod time;
+pub mod trajectory;
 pub mod universe;
 pub mod vec3;
 
@@ -20,18 +22,32 @@ fn main() {
                 gen_in_range(boundary.y),
                 gen_in_range(boundary.z),
             ),
-            Vec3::zero(),
+            Vec3::new(
+                gen_in_range(boundary.x),
+                gen_in_range(boundary.y),
+                gen_in_range(boundary.z),
+            ),
             Vec3::zero(),
             1e-24,
         )
     };
-    let particles = vec![gen_particle(), gen_particle(), gen_particle()];
+    let mut particles = Vec::new();
+    for _ in 0..7 {
+        particles.push(gen_particle())
+    }
     let mut u = Universe::new(Time::from_femtoseconds(1.0))
         .boundary(boundary)
         .add_particles(&particles);
 
-    while u.time < Time::from_nanoseconds(0.01) {
-        println!("{u:?}");
-        u.step()
+    let mut traj = Trajectory::from_universe(&u, "My universe".to_string());
+    traj.add_frame_from_universe(&u);
+    while u.time < Time::from_nanoseconds(100.0) {
+        eprintln!("==> {u:?}");
+        if u.step().is_none() {
+            break;
+        }
+        traj.add_frame_from_universe(&u);
     }
+    let gro = traj.to_gro();
+    println!("{gro}");
 }
