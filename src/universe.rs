@@ -1,7 +1,9 @@
-use std::process::exit;
-
 use crate::time::Time;
 use crate::vec3::Vec3;
+
+const BOLTZMANN: f64 = 1.380649e-23; // J⋅K−1
+const INV_BOLTZMANN: f64 = 1.0 / BOLTZMANN; // K⋅J−1
+const V_LIGHT: f64 = 299_792_458.0; // m / s
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub struct Particle {
@@ -85,7 +87,8 @@ pub fn lennard_jones(r: Vec3) -> Vec3 {
 
 impl Universe {
     /// Apply one time step.
-    pub fn step(&mut self) -> Option<()> {
+    pub fn step(&mut self) -> bool {
+        let mut okay = true;
         // Predictor stage.
         for particle in &mut self.particles {
             // Move the particles. pos = pos + vel * Δt + 1/2 * acc * Δt^2
@@ -131,19 +134,16 @@ impl Universe {
             // TODO: If this even works, might as well do the remainder tactic anyways. The check
             // is more expensive than the actual calculation, probably. Is also branchles, and
             // therefore much less chance of a misprediction.
-            if pos.x < -bound.x / 2.0 || pos.x > bound.x / 2.0 {
+            if pos.x < -bound.x || pos.x > bound.x {
                 pos.x = pos.x % bound.x
             }
-            if pos.y < -bound.y / 2.0 || pos.y > bound.y / 2.0 {
+            if pos.y < -bound.y || pos.y > bound.y {
                 pos.y = pos.y % bound.y
             }
-            if pos.z < -bound.z / 2.0 || pos.z > bound.z / 2.0 {
+            if pos.z < -bound.z || pos.z > bound.z {
                 pos.z = pos.z % bound.z
             }
         }
-
-        const BOLTZMANN: f64 = 1.380649e-23; // J⋅K−1
-        const INV_BOLTZMANN: f64 = 1.0 / BOLTZMANN; // K⋅J−1
 
         // Apply temperature control.
         let total_kinetic_energy: f64 = self
@@ -165,22 +165,27 @@ impl Universe {
         let d_temperature = self.temperature - temperature;
         if temperature.is_nan() {
             eprintln!("Welp... temperature has gone wild again.");
-            return None;
+            okay = false;
         }
 
         // This difference we spread out over all of the particles by subtracting it. This will
         // push the system back into the set temperature.
         let n_particles = self.particles.len();
+        let d_t_per_part = d_temperature / n_particles as f64;
         for particle in &mut self.particles {
             // E_kin = T / (2/3 * 1/k_B)
             //       = 3/2 * k_B * T
+            //
+            // E_kin = 1/2 * m * v^2
+            //   v^2 = E_kin / (1/2 * m)
+            //       = 2 * E_kin / m
+            //
             // |v| = sqrt(2 * E_kin / m)
             //     = sqrt(2 * 3/2 * k_B * T / m)
             //     = sqrt(3 * k_B * T / m)
-            let new_norm =
-                f64::sqrt(2.0 * BOLTZMANN * d_temperature / particle.mass) / n_particles as f64;
-            let scaling_factor = new_norm / particle.vel.norm();
-            particle.vel = particle.vel * scaling_factor;
+            let new_norm = f64::sqrt(2.0 * BOLTZMANN * d_t_per_part / particle.mass);
+            let scaling_factor = particle.vel.norm() / new_norm;
+            particle.vel = particle.vel / scaling_factor;
         }
 
         // Apply pressure control.
@@ -190,7 +195,7 @@ impl Universe {
         self.time += self.dt;
         self.iteration += 1;
 
-        Some(())
+        okay
     }
 
     /// Apply `n` time steps in succession.
