@@ -1,3 +1,5 @@
+#![feature(const_for)]
+
 use rand::{thread_rng, Rng};
 
 use time::Time;
@@ -23,50 +25,61 @@ fn main() {
                 gen_in_range(boundary.z),
             ),
             Vec3::new(
-                gen_in_range(boundary.x * 10.0),
-                gen_in_range(boundary.y * 10.0),
-                gen_in_range(boundary.z * 10.0),
+                gen_in_range(boundary.x * 100.0),
+                gen_in_range(boundary.y * 100.0),
+                gen_in_range(boundary.z * 100.0),
             ),
             Vec3::zero(),
             1e-24,
         )
     };
     let mut particles = Vec::new();
-    for _ in 0..100 {
+    let n_start = 100;
+    for _ in 0..n_start {
         particles.push(gen_particle())
     }
-    let mut u = Universe::new(Time::from_femtoseconds(1.0))
+    let mut particles_pruned = Vec::new();
+    'outer: for (ip, p) in particles.iter().enumerate() {
+        'inner: for (iq, q) in particles.iter().enumerate() {
+            if ip == iq {
+                continue 'inner;
+            }
+            let d = p.pos - q.pos;
+            if d.norm() < 7e-9 {
+                continue 'outer;
+            }
+        }
+
+        particles_pruned.push(*p)
+    }
+    eprintln!("{}/{n_start} survived", particles_pruned.len());
+    let mut u = Universe::new(Time::from_femtoseconds(10.0))
         .boundary(boundary)
-        .add_particles(&particles);
+        .add_particles(&particles_pruned);
 
     let mut traj = Trajectory::from_universe(&u, "My universe".to_string());
     traj.add_frame_from_universe(&u);
-    let mut good_one = u.clone();
-    let mut good_one_n = u.clone();
-    while u.time < Time::from_nanoseconds(1000.0) {
+    let until_time = Time::from_nanoseconds(0.10);
+    let n_iters = (until_time.seconds() / u.dt.seconds()) as usize;
+    let walltime_start = std::time::Instant::now();
+    while u.time < until_time {
         ////eprintln!("==> {u:?}");
         if !u.step() {
             eprintln!("[t={} ns] Okay bye...", u.time.nanoseconds());
             break;
         }
-        traj.add_frame_from_universe(&u);
-        good_one = good_one_n.clone();
-        good_one_n = u.clone();
-    }
-    let mut closest = f64::INFINITY;
-    for (i_p, p) in good_one.particles.iter().enumerate() {
-        for (i_o, o) in good_one.particles.iter().enumerate() {
-            if i_p == i_o {
-                continue;
-            }
-            let d = (p.vel - o.vel).norm();
-            if d < closest {
-                eprintln!("new closest: {} nm", closest * 1e10);
-                closest = d
-            }
+        if u.iteration % 100 == 0 {
+            let remaining_iters = n_iters - u.iteration;
+            let delta_walltime = std::time::Instant::now() - walltime_start;
+            let t_per_iter = delta_walltime.as_secs_f64() / u.iteration as f64;
+            let walltime_remaining = remaining_iters as f64 * t_per_iter;
+            eprint!(
+                "t = {:>10.3} ps    est. rem. wall time {walltime_remaining:.0} s\r",
+                u.time.picoseconds()
+            );
+            traj.add_frame_from_universe(&u);
         }
     }
-    eprintln!("Closest: {} nm", closest * 1e10);
     let gro = traj.to_gro();
     println!("{gro}");
 }

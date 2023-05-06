@@ -4,6 +4,18 @@ use crate::vec3::Vec3;
 const BOLTZMANN: f64 = 1.380649e-23; // J⋅K−1
 const INV_BOLTZMANN: f64 = 1.0 / BOLTZMANN; // K⋅J−1
 const V_LIGHT: f64 = 299_792_458.0; // m / s
+#[rustfmt::skip]
+const NEIGHBOURS: [(isize, isize, isize); 9 * 3] = [
+    (-1, -1, -1), (-1, -1,  0), (-1, -1,  1), 
+    (-1,  0, -1), (-1,  0,  0), (-1,  0,  1), 
+    (-1,  1, -1), (-1,  1,  0), (-1,  1,  1), 
+    ( 0, -1, -1), ( 0, -1,  0), ( 0, -1,  1), 
+    ( 0,  0, -1), ( 0,  0,  0), ( 0,  0,  1), 
+    ( 0,  1, -1), ( 0,  1,  0), ( 0,  1,  1), 
+    ( 1, -1, -1), ( 1, -1,  0), ( 1, -1,  1), 
+    ( 1,  0, -1), ( 1,  0,  0), ( 1,  0,  1), 
+    ( 1,  1, -1), ( 1,  1,  0), ( 1,  1,  1), 
+];
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub struct Particle {
@@ -31,8 +43,8 @@ impl Particle {
 #[derive(Debug, Clone)]
 pub struct Universe {
     pub time: Time,
-    iteration: usize,
-    dt: Time,
+    pub(crate) iteration: usize,
+    pub(crate) dt: Time,
     pub(crate) boundary: Vec3,
     /// Temperature in Kelvin.
     pub(crate) temperature: f64,
@@ -46,7 +58,7 @@ impl Universe {
             iteration: 0,
             dt,
             boundary: Vec3::new(1e-8, 1e-8, 1e-8),
-            temperature: 200.0,
+            temperature: 1000.0,
             particles: Vec::new(),
         }
     }
@@ -99,24 +111,28 @@ impl Universe {
 
         // Get forces and adjust accelerations.
         let other_positions: Vec<_> = self.particles.iter().map(|p| p.pos).collect();
-        for (index, particle) in self.particles.iter_mut().enumerate() {
-            // Get forces.
-            // F = - ∇V(pos)
-            //
-            // We can obtain this force by simply negating the Lennard-Jones potential. With the
-            // small timestep (dt) we integrate this so we can treat it as a force in our model.
-            let mut force = Vec3::zero();
-            for (other_index, other_pos) in other_positions.iter().enumerate() {
-                if index == other_index {
-                    continue;
+        for (x, y, z) in NEIGHBOURS {
+            for (index, particle) in self.particles.iter_mut().enumerate() {
+                // Get forces.
+                // F = - ∇V(pos)
+                //
+                // We can obtain this force by simply negating the Lennard-Jones potential. With the
+                // small timestep (dt) we integrate this so we can treat it as a force in our model.
+                let mut force = Vec3::zero();
+                for (other_index, other_pos) in other_positions.iter().enumerate() {
+                    if index == other_index {
+                        continue;
+                    }
+                    let other_pos_adjusted = Vec3::new(x as f64, y as f64, z as f64) * *other_pos;
+                    let r = particle.pos - other_pos_adjusted;
+                    if r.norm() < 2.5e-8 {
+                        force -= lennard_jones(r);
+                    }
                 }
-                let r = particle.pos - *other_pos;
-                force -= lennard_jones(r);
-            }
 
-            // Update acceleration. a = F / m
-            particle.acc = force / particle.mass;
-            //// println!("force: {force:?}, acc: {:?}", particle.acc);
+                // Update acceleration. a = F / m
+                particle.acc = force / particle.mass;
+            }
         }
 
         // // Corrector stage.
@@ -145,33 +161,24 @@ impl Universe {
             }
         }
 
+        // let total_kinetic_energy: f64 = self
+        //     .particles
+        //     .iter()
+        //     .map(|p| {
+        //         // E_kin = 1/2 * m * v^2
+        //         0.5 * p.mass * p.vel.norm().powi(2)
+        //     })
+        //     .sum();
+        // // T = 2/3 * 1/k_B * E_kin
+        // let temperature = (2.0 / 3.0) * INV_BOLTZMANN * total_kinetic_energy;
+        // eprintln!(
+        //     "temperature at {:06} ns is {temperature} K",
+        //     self.time.nanoseconds()
+        // );
+
         // Apply temperature control.
-        let total_kinetic_energy: f64 = self
-            .particles
-            .iter()
-            .map(|p| {
-                // E_kin = 1/2 * m * v^2
-                0.5 * p.mass * p.vel.powi(2).norm()
-            })
-            .sum();
-        // T = 2/3 * 1/k_B * E_kin
-        let temperature = (2.0 / 3.0) * INV_BOLTZMANN * total_kinetic_energy;
-        eprintln!(
-            "temperature at {:.06} ns is {temperature:.06} K",
-            self.time.nanoseconds()
-        );
-
-        // Calculate the difference in temperature per particle.
-        let d_temperature = self.temperature - temperature;
-        if temperature.is_nan() {
-            eprintln!("Welp... temperature has gone wild again.");
-            okay = false;
-        }
-
-        // This difference we spread out over all of the particles by subtracting it. This will
-        // push the system back into the set temperature.
         let n_particles = self.particles.len();
-        let d_t_per_part = d_temperature / n_particles as f64;
+        let t_per_particle = self.temperature / n_particles as f64;
         for particle in &mut self.particles {
             // E_kin = T / (2/3 * 1/k_B)
             //       = 3/2 * k_B * T
@@ -183,9 +190,10 @@ impl Universe {
             // |v| = sqrt(2 * E_kin / m)
             //     = sqrt(2 * 3/2 * k_B * T / m)
             //     = sqrt(3 * k_B * T / m)
-            let new_norm = f64::sqrt(2.0 * BOLTZMANN * d_t_per_part / particle.mass);
-            let scaling_factor = particle.vel.norm() / new_norm;
-            particle.vel = particle.vel / scaling_factor;
+            // FIXME: Optimization possible here.
+            let new_norm = f64::sqrt(3.0 * BOLTZMANN * t_per_particle / particle.mass);
+            let scaling_factor = new_norm / particle.vel.norm();
+            particle.vel = particle.vel * scaling_factor;
         }
 
         // Apply pressure control.

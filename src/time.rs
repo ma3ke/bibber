@@ -29,12 +29,12 @@ impl Time {
         Self::from_seconds(nanos / 1e9)
     }
 
-    pub fn from_femtoseconds(femtos: f64) -> Self {
-        Self::from_seconds(femtos / 1e12)
+    pub fn from_picoseconds(picos: f64) -> Self {
+        Self::from_seconds(picos / 1e12)
     }
 
-    pub fn from_picoseconds(picos: f64) -> Self {
-        Self::from_seconds(picos / 1e15)
+    pub fn from_femtoseconds(femtos: f64) -> Self {
+        Self::from_seconds(femtos / 1e15)
     }
 }
 
@@ -55,11 +55,11 @@ impl Time {
         self.seconds * 1e9
     }
 
-    pub fn femtoseconds(&self) -> f64 {
+    pub fn picoseconds(&self) -> f64 {
         self.seconds * 1e12
     }
 
-    pub fn picoseconds(&self) -> f64 {
+    pub fn femtoseconds(&self) -> f64 {
         self.seconds * 1e15
     }
 }
