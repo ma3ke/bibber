@@ -1,20 +1,26 @@
 #![feature(const_for)]
 
+use std::fs::read_to_string;
+
 use rand::{thread_rng, Rng};
 
-use time::Time;
+use recipe::Recipe;
 use trajectory::Trajectory;
 use universe::{Particle, Universe};
 use vec3::Vec3;
 
+pub mod recipe;
 pub mod time;
 pub mod trajectory;
 pub mod universe;
 pub mod vec3;
 
 fn main() {
-    let boundary = Vec3::new(1e-7, 1e-7, 1e-7);
+    // Read our recipe file. This is the configuration of the system.
+    let recipe = Recipe::from_string(read_to_string("recipe.bibber").unwrap()).unwrap();
 
+    // Prepare some particles is a totally not hacky way.
+    let boundary = recipe.boundary;
     let mut rng = thread_rng();
     let mut gen_in_range = |bound: f64| rng.gen_range(-bound / 2.0..bound / 2.0);
     let mut gen_particle = || {
@@ -53,29 +59,51 @@ fn main() {
         particles_pruned.push(*p)
     }
     eprintln!("{}/{n_start} survived", particles_pruned.len());
-    let mut u = Universe::new(Time::from_femtoseconds(10.0))
-        .boundary(boundary)
+    let mut u = Universe::new(recipe.timestep)
+        .start(recipe.start)
+        .boundary(recipe.boundary)
         .add_particles(&particles_pruned);
 
-    let mut traj = Trajectory::from_universe(&u, "My universe".to_string());
+    // Initiate trajectory to save the states in.
+    let mut traj = Trajectory::from_universe(&u, recipe.title.to_owned());
     traj.add_frame_from_universe(&u);
-    let until_time = Time::from_nanoseconds(0.01);
-    let n_iters = (until_time.seconds() / u.dt.seconds()) as usize;
+
+    // Run this thing!
+    let iters_per_snapshot = recipe.timesteps() / recipe.snapshots();
+    let n_iters = recipe.timesteps();
     let walltime_start = std::time::Instant::now();
-    while u.time < until_time {
+    while u.time < recipe.end {
         u.step();
-        if u.iteration % 100 == 0 {
+        if u.iteration % iters_per_snapshot == 0 {
             let remaining_iters = n_iters - u.iteration;
             let delta_walltime = std::time::Instant::now() - walltime_start;
             let t_per_iter = delta_walltime.as_secs_f64() / u.iteration as f64;
             let walltime_remaining = remaining_iters as f64 * t_per_iter;
             eprint!(
-                "t = {:>10.3} ps    est. rem. wall time {walltime_remaining:.0} s\r",
+                "iter {}/{}, t = {:.3} ps, estimated remaining walltime is {walltime_remaining:.0} s    \r",
+                u.iteration,
+                recipe.timesteps(),
                 u.time.picoseconds()
             );
             traj.add_frame_from_universe(&u);
         }
     }
+    let walltime_end = std::time::Instant::now();
+    let walltime_runtime = walltime_end - walltime_start;
+
+    // Report some stats about the simulation.
+    eprintln!(
+        "\nSimulated {} particles for {} ns with a timestep of {} fs in {} s.",
+        u.particles.len(),
+        recipe.time().nanoseconds(),
+        recipe.timestep.femtoseconds(),
+        walltime_runtime.as_secs()
+    );
+    eprintln!(
+        "    {:.3} ps / s    {:.3} ns / day",
+        recipe.time().picoseconds() / walltime_runtime.as_secs_f64(),
+        recipe.time().nanoseconds() / (walltime_runtime.as_secs_f64() / 60.0 / 60.0 / 24.0)
+    );
     let gro = traj.to_gro();
     println!("{gro}");
 }

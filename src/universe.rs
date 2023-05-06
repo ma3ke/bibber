@@ -2,8 +2,6 @@ use crate::time::Time;
 use crate::vec3::Vec3;
 
 const BOLTZMANN: f64 = 1.380649e-23; // J⋅K−1
-const INV_BOLTZMANN: f64 = 1.0 / BOLTZMANN; // K⋅J−1
-const V_LIGHT: f64 = 299_792_458.0; // m / s
 #[rustfmt::skip]
 const NEIGHBOURS: [(isize, isize, isize); 9 * 3] = [
     (-1, -1, -1), (-1, -1,  0), (-1, -1,  1), 
@@ -52,6 +50,7 @@ pub struct Universe {
 }
 
 impl Universe {
+    /// Creates a new [`Universe`].
     pub fn new(dt: Time) -> Self {
         Self {
             time: Time::zero(),
@@ -63,16 +62,25 @@ impl Universe {
         }
     }
 
+    /// Set time to some start time.
+    pub fn start(mut self, start: Time) -> Self {
+        self.time = start;
+        self
+    }
+
+    /// Set the boundary.
     pub fn boundary(mut self, boundary: Vec3) -> Self {
         self.boundary = boundary;
         self
     }
 
+    /// Add a [`Particle`] to the system.
     pub fn add_particle(mut self, particle: Particle) -> Self {
         self.particles.push(particle);
         self
     }
 
+    /// Add a collection of [`Particle`]s to the system.
     pub fn add_particles(mut self, particles: &[Particle]) -> Self {
         self.particles.extend_from_slice(particles);
         self
