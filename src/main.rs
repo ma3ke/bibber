@@ -22,7 +22,7 @@ fn main() {
     // Prepare some particles is a totally not hacky way.
     let boundary = recipe.boundary;
     let mut rng = thread_rng();
-    let mut gen_in_range = |bound: f64| rng.gen_range(-bound / 2.0..bound / 2.0);
+    let mut gen_in_range = |bound: f64| rng.gen_range(-0.5 * bound..0.5 * bound);
     let mut gen_particle = || {
         Particle::new(
             Vec3::new(
@@ -39,34 +39,29 @@ fn main() {
             1e-24,
         )
     };
-    let mut particles = Vec::new();
-    let n_start = 100;
-    for _ in 0..n_start {
-        particles.push(gen_particle())
-    }
-    let mut particles_pruned = Vec::new();
-    'outer: for (ip, p) in particles.iter().enumerate() {
-        'inner: for (iq, q) in particles.iter().enumerate() {
-            if ip == iq {
-                continue 'inner;
+    let mut particles: Vec<Particle> = Vec::with_capacity(recipe.particles);
+    let mut pruned = 0;
+    for _ in 0..recipe.particles {
+        'generator: loop {
+            let candidate = gen_particle();
+            for particle in &particles {
+                let d = particle.pos - candidate.pos;
+                if d.norm() < 7e-9 {
+                    pruned += 1;
+                    continue 'generator;
+                }
             }
-            let d = p.pos - q.pos;
-            if d.norm() < 7e-9 {
-                continue 'outer;
-            }
-        }
 
-        particles_pruned.push(*p)
+            particles.push(candidate);
+            break;
+        }
     }
-    eprintln!(
-        "After pruning, {}/{n_start} survived",
-        particles_pruned.len()
-    );
+    eprintln!("Pruned {pruned} particles to get {}.", recipe.particles);
 
     // Create the universe :)
     let mut u = Universe::new(recipe.timestep, recipe.boundary, recipe.temperature)
         .start(recipe.start)
-        .add_particles(&particles_pruned);
+        .add_particles(&particles);
 
     // Initiate trajectory to save the states in.
     let mut traj = Trajectory::from_universe(&u, recipe.title.to_owned());

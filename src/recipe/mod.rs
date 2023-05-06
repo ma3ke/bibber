@@ -14,6 +14,8 @@ pub struct Recipe {
     /// Constant temperature (Kelvin).
     pub temperature: f64,
 
+    pub particles: usize,
+
     /// Vector specifying boundary (meter).
     pub boundary: Vec3,
 }
@@ -48,6 +50,7 @@ impl Recipe {
         let mut timestep = None;
         let mut snapshot = None;
         let mut temperature = None;
+        let mut particles = None;
         let mut boundary = None;
         for line in src.lines() {
             let mut words = line.split_ascii_whitespace();
@@ -58,6 +61,7 @@ impl Recipe {
                 Some("snapshot") => snapshot = Some(parse_single_time(words.collect())?),
                 Some("timestep") => timestep = Some(parse_single_time(words.collect())?),
                 Some("temperature") => temperature = Some(parse_temperature(words.collect())?),
+                Some("particles") => particles = Some(parse_particles(words.collect())?),
                 Some("boundary") => boundary = Some(parse_boundary(words.collect())?),
                 None => {}
                 _ => todo!(),
@@ -71,6 +75,7 @@ impl Recipe {
             snapshot: snapshot.expect("recipe should specify snapshot"),
             timestep: timestep.expect("recipe should specify timestep"),
             temperature: temperature.expect("recipe should specify temperature"),
+            particles: particles.expect("recipe should specify particles"),
             boundary: boundary.expect("recipe should specify boundary"),
         })
     }
@@ -206,6 +211,20 @@ fn parse_single_time(arguments: Vec<&str>) -> Result<Time, BibberParseError> {
 fn parse_temperature(arguments: Vec<&str>) -> Result<f64, BibberParseError> {
     let [temperature] = parse_arguments(arguments)?;
     parse_temperature_value(&temperature)
+}
+
+/// Parse number of particles.
+///
+/// # Example
+///
+/// ```
+/// // Line from which args are derived: boundary cubic 100:nm 100:nm 100:nm
+/// let args = vec!["100"];
+/// assert_eq!(parse_particles(args), 100)
+/// ```
+fn parse_particles(arguments: Vec<&str>) -> Result<usize, BibberParseError> {
+    let [particles] = parse_arguments(arguments)?;
+    Ok(particles.parse::<f64>()? as usize)
 }
 
 /// Parse specification of periodic boundary conditions.
