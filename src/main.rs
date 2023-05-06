@@ -58,10 +58,14 @@ fn main() {
 
         particles_pruned.push(*p)
     }
-    eprintln!("{}/{n_start} survived", particles_pruned.len());
-    let mut u = Universe::new(recipe.timestep)
+    eprintln!(
+        "After pruning, {}/{n_start} survived",
+        particles_pruned.len()
+    );
+
+    // Create the universe :)
+    let mut u = Universe::new(recipe.timestep, recipe.boundary, recipe.temperature)
         .start(recipe.start)
-        .boundary(recipe.boundary)
         .add_particles(&particles_pruned);
 
     // Initiate trajectory to save the states in.
@@ -93,8 +97,9 @@ fn main() {
 
     // Report some stats about the simulation.
     eprintln!(
-        "\nSimulated {} particles for {} ns with a timestep of {} fs in {} s.",
+        "\nSimulated {} particles at {} K for {} ns with a timestep of {} fs in {} s.",
         u.particles.len(),
+        u.temperature,
         recipe.time().nanoseconds(),
         recipe.timestep.femtoseconds(),
         walltime_runtime.as_secs()

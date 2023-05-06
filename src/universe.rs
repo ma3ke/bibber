@@ -51,13 +51,13 @@ pub struct Universe {
 
 impl Universe {
     /// Creates a new [`Universe`].
-    pub fn new(dt: Time) -> Self {
+    pub fn new(timestep: Time, boundary: Vec3, temperature: f64) -> Self {
         Self {
             time: Time::zero(),
             iteration: 0,
-            dt,
-            boundary: Vec3::new(1e-8, 1e-8, 1e-8),
-            temperature: 1000.0,
+            dt: timestep,
+            boundary,
+            temperature,
             particles: Vec::new(),
         }
     }
