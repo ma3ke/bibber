@@ -59,15 +59,11 @@ fn main() {
 
     let mut traj = Trajectory::from_universe(&u, "My universe".to_string());
     traj.add_frame_from_universe(&u);
-    let until_time = Time::from_nanoseconds(0.10);
+    let until_time = Time::from_nanoseconds(0.01);
     let n_iters = (until_time.seconds() / u.dt.seconds()) as usize;
     let walltime_start = std::time::Instant::now();
     while u.time < until_time {
-        ////eprintln!("==> {u:?}");
-        if !u.step() {
-            eprintln!("[t={} ns] Okay bye...", u.time.nanoseconds());
-            break;
-        }
+        u.step();
         if u.iteration % 100 == 0 {
             let remaining_iters = n_iters - u.iteration;
             let delta_walltime = std::time::Instant::now() - walltime_start;

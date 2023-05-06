@@ -99,8 +99,7 @@ pub fn lennard_jones(r: Vec3) -> Vec3 {
 
 impl Universe {
     /// Apply one time step.
-    pub fn step(&mut self) -> bool {
-        let mut okay = true;
+    pub fn step(&mut self) {
         // Predictor stage.
         for particle in &mut self.particles {
             // Move the particles. pos = pos + vel * Δt + 1/2 * acc * Δt^2
@@ -202,8 +201,6 @@ impl Universe {
         // Increase time and iteration count.
         self.time += self.dt;
         self.iteration += 1;
-
-        okay
     }
 
     /// Apply `n` time steps in succession.
