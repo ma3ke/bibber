@@ -177,7 +177,7 @@ fn parse_temperature_value(s: &str) -> Result<f64, BibberParseError> {
             let value: f64 = number.parse()?;
             let offset = match unit {
                 "K" => 0.0,
-                "C" => 273.24, // 0 C == -273.24 K
+                "C" => 273.15, // 0 C == -273.15 K
                 "km" | "m" | "dm" | "cm" | "mm" | "um" | "nm" | "pm" | "fm" | "s" | "ms" | "us"
                 | "ns" | "ps" | "fs" => return Err(BibberParseError::InvalidUnit),
                 _ => return Err(BibberParseError::UnknownUnit),
