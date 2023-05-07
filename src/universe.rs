@@ -186,20 +186,22 @@ impl Universe {
         // );
 
         // Apply temperature control.
-        let t_per_particle = self.temperature / self.particles.len() as f64;
+        //
+        // E_kin = T / (2/3 * 1/k_B)
+        //       = 3/2 * k_B * T
+        //
+        // E_kin = 1/2 * m * v^2
+        //   v^2 = E_kin / (1/2 * m)
+        //       = 2 * E_kin / m
+        //
+        // |v| = sqrt(2 * E_kin / m)
+        //     = sqrt(2 * 3/2 * k_B * T / m)
+        //     = sqrt(3 * k_B * T / m)
+        //     = sqrt(two_ekin / m)   where two_ekin = 3 * k_B * T
+        let t = self.temperature / self.particles.len() as f64;
+        let two_ekin = 3.0 * BOLTZMANN * t;
         for particle in &mut self.particles {
-            // E_kin = T / (2/3 * 1/k_B)
-            //       = 3/2 * k_B * T
-            //
-            // E_kin = 1/2 * m * v^2
-            //   v^2 = E_kin / (1/2 * m)
-            //       = 2 * E_kin / m
-            //
-            // |v| = sqrt(2 * E_kin / m)
-            //     = sqrt(2 * 3/2 * k_B * T / m)
-            //     = sqrt(3 * k_B * T / m)
-            // FIXME: Optimization possible here.
-            let new_norm = f64::sqrt(3.0 * BOLTZMANN * t_per_particle / particle.mass);
+            let new_norm = f64::sqrt(two_ekin / particle.mass);
             let scaling_factor = new_norm / particle.vel.norm();
             particle.vel = particle.vel * scaling_factor;
         }
