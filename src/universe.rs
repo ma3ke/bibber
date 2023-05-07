@@ -93,16 +93,18 @@ impl Universe {
 /// ```
 /// V_LJ(r) = 4 * ε * [ ( σ / r ) ^ 12 − ( σ / r ) ^ 6 ]
 /// ```
+///
+///  - ε is the depth of the potential well. (J/mol)
+///  - σ is the distance at which the potential crosses zero. (meter)
+#[inline]
 pub fn lennard_jones(r: Vec3) -> Vec3 {
-    // ε is the depth of the potential well. (J/mol)
-    let epsilon = 1.8e3;
-    // σ is the distance at which the potential crosses zero. (meter)
-    let sigma = 4.0e-10;
+    const EPSILON: f64 = 1.8e3; // J/mol
+    const SIGMA: f64 = 4.0e-10; // m
 
-    let sigma_over_r = sigma / r.norm();
+    let sigma_over_r = SIGMA / r.norm();
+    let frac_pow_6 = sigma_over_r.powi(6);
 
-    // FIXME: x^12 = (x^6)^2 optimization
-    r * ((sigma_over_r.powi(12) - sigma_over_r.powi(6)) * 4.0 * epsilon)
+    r * ((frac_pow_6 * frac_pow_6 - frac_pow_6) * 4.0 * EPSILON)
 }
 
 impl Universe {
@@ -132,9 +134,7 @@ impl Universe {
                     }
                     let other_pos_adjusted = Vec3::new(x as f64, y as f64, z as f64) * *other_pos;
                     let r = particle.pos - other_pos_adjusted;
-                    if r.norm() < 2.5e-8 {
-                        force -= lennard_jones(r);
-                    }
+                    force -= lennard_jones(r);
                 }
 
                 // Update acceleration. a = F / m
@@ -186,8 +186,7 @@ impl Universe {
         // );
 
         // Apply temperature control.
-        let n_particles = self.particles.len();
-        let t_per_particle = self.temperature / n_particles as f64;
+        let t_per_particle = self.temperature / self.particles.len() as f64;
         for particle in &mut self.particles {
             // E_kin = T / (2/3 * 1/k_B)
             //       = 3/2 * k_B * T

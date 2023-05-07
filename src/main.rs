@@ -44,7 +44,7 @@ fn main() {
             let candidate = gen_particle();
             for particle in &particles {
                 let d = particle.pos - candidate.pos;
-                if d.norm() < 7e-10 {
+                if d.norm() < 1e-10 {
                     pruned += 1;
                     continue 'generator;
                 }
