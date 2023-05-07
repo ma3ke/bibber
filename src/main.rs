@@ -1,6 +1,6 @@
 use std::fs::read_to_string;
 
-use rand::{thread_rng, Rng};
+use rand::{rngs::StdRng, thread_rng, Rng, SeedableRng};
 
 use recipe::Recipe;
 use trajectory::Trajectory;
@@ -19,7 +19,7 @@ fn main() {
 
     // Prepare some particles is a totally not hacky way.
     let boundary = recipe.boundary;
-    let mut rng = thread_rng();
+    let mut rng = StdRng::seed_from_u64(20384093824);
     let mut gen_in_range = |bound: f64| rng.gen_range(-0.5 * bound..0.5 * bound);
     let mut gen_particle = || {
         Particle::new(
