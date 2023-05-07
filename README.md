@@ -77,13 +77,15 @@ Here is an example.
 title       Our little system
 
 start       0:ns
-end         0.01:ns
+end         1:ns
 timestep    10:fs
-snapshot    1:ps
+snapshot    10:ps
 
 temperature 300:K
 
-boundary    cubic   100:nm   100:nm   100:nm
+particles   30
+
+boundary    cubic   10:nm   10:nm   10:nm
 ```
 
 ## Syntax
