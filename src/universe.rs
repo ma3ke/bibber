@@ -153,18 +153,20 @@ impl Universe {
         for particle in &mut self.particles {
             let pos = &mut particle.pos;
             let bound = self.boundary;
-
-            // TODO: If this even works, might as well do the remainder tactic anyways. The check
-            // is more expensive than the actual calculation, probably. Is also branchles, and
-            // therefore much less chance of a misprediction.
-            if pos.x < -bound.x || pos.x > bound.x {
-                pos.x = pos.x % bound.x
+            if pos.x < -0.5 * bound.x {
+                pos.x += bound.x
+            } else if pos.x > 0.5 * bound.x {
+                pos.x -= bound.x
             }
-            if pos.y < -bound.y || pos.y > bound.y {
-                pos.y = pos.y % bound.y
+            if pos.y < -0.5 * bound.y {
+                pos.y += bound.y
+            } else if pos.y > 0.5 * bound.y {
+                pos.y -= bound.y
             }
-            if pos.z < -bound.z || pos.z > bound.z {
-                pos.z = pos.z % bound.z
+            if pos.z < -0.5 * bound.z {
+                pos.z += bound.z
+            } else if pos.z > 0.5 * bound.z {
+                pos.z -= bound.z
             }
         }
 

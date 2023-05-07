@@ -1,5 +1,3 @@
-#![feature(const_for)]
-
 use std::fs::read_to_string;
 
 use rand::{thread_rng, Rng};
@@ -46,7 +44,7 @@ fn main() {
             let candidate = gen_particle();
             for particle in &particles {
                 let d = particle.pos - candidate.pos;
-                if d.norm() < 7e-9 {
+                if d.norm() < 7e-10 {
                     pruned += 1;
                     continue 'generator;
                 }
