@@ -1,12 +1,12 @@
 title       Our little system
 
 start       0:ns
-end         1:ns
-timestep    10:fs
-snapshot    10:ps
+end         0.4:ns
+timestep    5:fs
+snapshot    1000:fs
 
-temperature 1000:K
+temperature 300:K
 
-particles   10
+particles   300
 
-boundary    cubic   10:nm   10:nm   10:nm
+boundary    cubic   7:nm   7:nm   7:nm

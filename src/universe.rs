@@ -97,9 +97,9 @@ impl Universe {
 ///  - ε is the depth of the potential well. (J/mol)
 ///  - σ is the distance at which the potential crosses zero. (meter)
 #[inline]
-pub fn lennard_jones(r: Vec3) -> Vec3 {
-    const EPSILON: f64 = 1.8e3; // J/mol
-    const SIGMA: f64 = 4.0e-10; // m
+pub fn lennard_jones_potential(r: Vec3) -> Vec3 {
+    const EPSILON: f64 = 1.8e4; // J/mol
+    const SIGMA: f64 = 2.0e-10; // m
 
     let sigma_over_r = SIGMA / r.norm();
     let frac_pow_6 = sigma_over_r.powi(6);
@@ -119,27 +119,29 @@ impl Universe {
         }
 
         // Get forces and adjust accelerations.
+        // TODO: Huge optimization possible, here, since F_ij = -F_ji.
         let other_positions: Vec<_> = self.particles.iter().map(|p| p.pos).collect();
-        for (x, y, z) in NEIGHBOURS {
-            for (index, particle) in self.particles.iter_mut().enumerate() {
+        for (index, particle) in self.particles.iter_mut().enumerate() {
+            let mut force = Vec3::zero();
+            // dx, dy, dz are the offset factors for the surrounding pbc boxes.
+            for (x, y, z) in NEIGHBOURS {
+                let adjustment = Vec3::new(x as f64, y as f64, z as f64) * self.boundary;
                 // Get forces.
                 // F = - ∇V(pos)
                 //
                 // We can obtain this force by simply negating the Lennard-Jones potential. With the
                 // small timestep (dt) we integrate this so we can treat it as a force in our model.
-                let mut force = Vec3::zero();
                 for (other_index, other_pos) in other_positions.iter().enumerate() {
-                    if index == other_index {
+                    if (x, y, z) == (0, 0, 0) && index == other_index {
                         continue;
                     }
-                    let other_pos_adjusted = Vec3::new(x as f64, y as f64, z as f64) * *other_pos;
+                    let other_pos_adjusted = adjustment + *other_pos;
                     let r = particle.pos - other_pos_adjusted;
-                    force -= lennard_jones(r);
+                    force -= lennard_jones_potential(r);
                 }
-
-                // Update acceleration. a = F / m
-                particle.acc = force / particle.mass;
             }
+            // Update acceleration. a = F / m
+            particle.acc = force / particle.mass;
         }
 
         // // Corrector stage.
