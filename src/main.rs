@@ -1,6 +1,6 @@
 use std::fs::read_to_string;
 
-use rand::{rngs::StdRng, thread_rng, Rng, SeedableRng};
+use rand::{rngs::StdRng, Rng, SeedableRng};
 
 use recipe::Recipe;
 use trajectory::Trajectory;
